@@ -236,8 +236,6 @@ export function cleanupInactiveUsers(): void {
     }
   }
 }
-  }
-}
 
 // Get storage statistics
 export function getStorageStats(): {
