@@ -7,21 +7,37 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const db = getDb();
+
   const chats = db.prepare(`
     SELECT c.*,
-      (SELECT m.text FROM messages m WHERE m.chat_id = c.id AND m.deleted_at IS NULL ORDER BY m.created_at DESC LIMIT 1) as last_message,
-      (SELECT m.created_at FROM messages m WHERE m.chat_id = c.id AND m.deleted_at IS NULL ORDER BY m.created_at DESC LIMIT 1) as last_message_at,
-      (SELECT u.username FROM messages m LEFT JOIN users u ON m.sender_id = u.id WHERE m.chat_id = c.id AND m.deleted_at IS NULL ORDER BY m.created_at DESC LIMIT 1) as last_message_sender,
-      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.created_at > COALESCE(
-        (SELECT rr.read_at FROM read_receipts rr WHERE rr.message_id = m.id AND rr.user_id = ?), '1970-01-01'
-      ) AND m.sender_id != ? AND m.deleted_at IS NULL) as unread_count,
+      lm.text as last_message,
+      lm.created_at as last_message_at,
+      lu.username as last_message_sender,
+      COALESCE(uc.unread_count, 0) as unread_count,
       (SELECT json_object('id', pm.id, 'text', pm.text, 'sender_name', pmu.username)
        FROM messages pm LEFT JOIN users pmu ON pm.sender_id = pmu.id WHERE pm.id = c.pinned_message_id) as pinned_message_json,
       cm.is_pinned
     FROM chats c
     INNER JOIN chat_members cm ON c.id = cm.chat_id AND cm.is_active = 1
+    LEFT JOIN (
+      SELECT chat_id, text, sender_id, created_at,
+             ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY created_at DESC) as rn
+      FROM messages WHERE deleted_at IS NULL
+    ) lm ON lm.chat_id = c.id AND lm.rn = 1
+    LEFT JOIN users lu ON lm.sender_id = lu.id
+    LEFT JOIN (
+      SELECT m.chat_id, COUNT(*) as unread_count
+      FROM messages m
+      WHERE m.deleted_at IS NULL
+        AND m.sender_id != ?
+        AND m.created_at > COALESCE(
+          (SELECT rr.read_at FROM read_receipts rr WHERE rr.message_id = m.id AND rr.user_id = ?),
+          '1970-01-01'
+        )
+      GROUP BY m.chat_id
+    ) uc ON uc.chat_id = c.id
     WHERE cm.user_id = ?
     ORDER BY cm.is_pinned DESC, last_message_at DESC NULLS LAST, c.created_at DESC
   `).all(req.user.id, req.user.id, req.user.id);
@@ -36,7 +52,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 router.post('/private', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { user_id } = req.body;
   if (!user_id) { res.status(400).json({ error: 'user_id is required' }); return; }
   if (user_id === req.user.id) { res.status(400).json({ error: 'Нельзя создать чат с собой' }); return; }
@@ -63,26 +79,26 @@ router.post('/private', (req: Request, res: Response) => {
 
 // Pin message
 router.post('/:chatId/pin/:messageId', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId, messageId } = req.params;
   const db = getDb();
   const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(chatId) as any;
-  if (!chat) { res.status(404).json({ error: 'Chat not found' }); return; }
+  if (!chat) { res.status(404).json({ error: 'Чат не найден' }); return; }
   if (chat.created_by !== req.user.id && req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Only creator can pin' }); return;
+    res.status(403).json({ error: 'Только создатель может закрепить' }); return;
   }
   db.prepare('UPDATE chats SET pinned_message_id = ? WHERE id = ?').run(messageId, chatId);
   res.json({ ok: true });
 });
 
 router.delete('/:chatId/pin', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const db = getDb();
   const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(chatId) as any;
-  if (!chat) { res.status(404).json({ error: 'Chat not found' }); return; }
+  if (!chat) { res.status(404).json({ error: 'Чат не найден' }); return; }
   if (chat.created_by !== req.user.id && req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Only creator can unpin' }); return;
+    res.status(403).json({ error: 'Только создатель может открепить' }); return;
   }
   db.prepare('UPDATE chats SET pinned_message_id = NULL WHERE id = ?').run(chatId);
   res.json({ ok: true });
@@ -90,25 +106,25 @@ router.delete('/:chatId/pin', (req: Request, res: Response) => {
 
 // Set slow mode
 router.post('/:chatId/slow-mode', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { seconds } = req.body;
   const db = getDb();
   const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(chatId) as any;
-  if (!chat) { res.status(404).json({ error: 'Chat not found' }); return; }
+  if (!chat) { res.status(404).json({ error: 'Чат не найден' }); return; }
   if (chat.created_by !== req.user.id && req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Only creator can set slow mode' }); return;
+    res.status(403).json({ error: 'Только создатель может настроить' }); return;
   }
   db.prepare('UPDATE chats SET slow_mode_seconds = ? WHERE id = ?').run(seconds || 0, chatId);
   res.json({ ok: true });
 });
 
 router.get('/:chatId/members', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const db = getDb();
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
   const members = db.prepare(`
     SELECT u.id, u.username, u.role, cm.role_in_chat, cm.joined_at
     FROM chat_members cm JOIN users u ON cm.user_id = u.id
@@ -119,7 +135,7 @@ router.get('/:chatId/members', (req: Request, res: Response) => {
 
 // Pin/unpin chat
 router.post('/:chatId/pin-chat', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const db = getDb();
   db.prepare('UPDATE chat_members SET is_pinned = 1 WHERE chat_id = ? AND user_id = ?').run(chatId, req.user.id);
@@ -127,7 +143,7 @@ router.post('/:chatId/pin-chat', (req: Request, res: Response) => {
 });
 
 router.delete('/:chatId/pin-chat', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const db = getDb();
   db.prepare('UPDATE chat_members SET is_pinned = 0 WHERE chat_id = ? AND user_id = ?').run(chatId, req.user.id);
@@ -136,16 +152,15 @@ router.delete('/:chatId/pin-chat', (req: Request, res: Response) => {
 
 // Schedule message
 router.post('/:chatId/schedule', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { text, scheduled_at } = req.body;
-  if (!text || !scheduled_at) { res.status(400).json({ error: 'text and scheduled_at required' }); return; }
+  if (!text || !scheduled_at) { res.status(400).json({ error: 'Текст и время обязательны' }); return; }
 
   const db = getDb();
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
 
-  const { v4: uuidv4 } = require('uuid');
   const id = uuidv4();
   db.prepare('INSERT INTO messages (id, chat_id, sender_id, type, text, scheduled_at) VALUES (?, ?, ?, ?, ?, ?)').run(id, chatId, req.user.id, 'text', text.trim(), scheduled_at);
   res.json({ ok: true, id, scheduled_at });
@@ -154,9 +169,10 @@ router.post('/:chatId/schedule', (req: Request, res: Response) => {
 // Send scheduled messages (called periodically)
 export function sendScheduledMessages(): void {
   const db = getDb();
-  const now = new Date().toISOString();
-  const scheduled = db.prepare("SELECT id, chat_id FROM messages WHERE scheduled_at IS NOT NULL AND scheduled_at <= ? AND deleted_at IS NULL").all(now) as any[];
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const scheduled = db.prepare("SELECT id, chat_id, sender_id, text FROM messages WHERE scheduled_at IS NOT NULL AND scheduled_at <= ? AND deleted_at IS NULL AND created_at IS NULL").all(now) as any[];
   for (const msg of scheduled) {
+    db.prepare("UPDATE messages SET created_at = datetime('now') WHERE id = ?").run(msg.id);
     db.prepare("UPDATE chats SET updated_at = datetime('now') WHERE id = ?").run(msg.chat_id);
   }
 }

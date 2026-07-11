@@ -10,6 +10,11 @@ import { hashPassword } from '../password';
 const router = Router();
 
 router.post('/demo', (req: Request, res: Response) => {
+  if (!config.demoEnabled) {
+    res.status(403).json({ error: 'Демо-режим отключён' });
+    return;
+  }
+
   const db = getDb();
 
   // Find or create demo user

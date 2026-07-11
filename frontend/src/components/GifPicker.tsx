@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-
-const TENOR_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ';
+import { api } from '../api/client';
 
 interface GifPickerProps {
   onSelect: (url: string) => void;
@@ -21,11 +20,8 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const searchGifs = async (q: string) => {
     setLoading(true);
     try {
-      const url = q === 'trending'
-        ? `https://tenor.googleapis.com/v2/featured?key=${TENOR_KEY}&limit=20&media_filter=gif`
-        : `https://tenor.googleapis.com/v2/search?key=${TENOR_KEY}&q=${encodeURIComponent(q)}&limit=20&media_filter=gif`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const params = q === 'trending' ? '?q=trending' : `?q=${encodeURIComponent(q)}`;
+      const data = await api.request(`/gif/search${params}`);
       setGifs(data.results || []);
     } catch { setGifs([]); }
     setLoading(false);

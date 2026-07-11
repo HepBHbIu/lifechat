@@ -5,6 +5,7 @@ export interface User {
   is_active: number;
   created_at: string;
   last_seen_at?: string;
+  avatar_url?: string | null;
 }
 
 export interface Token {
@@ -66,6 +67,7 @@ export interface Message {
   forwarded_from_id: string | null;
   thread_id: string | null;
   is_spoiler: number;
+  is_read?: boolean;
   auto_delete_seconds: number | null;
   auto_delete_at: string | null;
   created_at: string;

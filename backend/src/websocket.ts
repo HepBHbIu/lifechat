@@ -19,64 +19,76 @@ export function setupWebSocket(server: Server): void {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws: AuthenticatedSocket, req) => {
-    const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const token = url.searchParams.get('token');
+    ws.isAlive = true;
 
-    if (!token) {
-      ws.close(4001, 'No token');
-      return;
-    }
-
-    try {
-      const decoded = jwt.verify(token, config.jwtSecret) as any;
-      const db = getDb();
-      const user = db.prepare('SELECT id, username, role, is_active FROM users WHERE id = ?').get(decoded.id) as any;
-      if (!user || !user.is_active) {
-        ws.close(4001, 'User not found or inactive');
-        return;
+    const authTimeout = setTimeout(() => {
+      if (!ws.userId) {
+        ws.close(4002, 'Auth timeout');
       }
-      ws.userId = user.id;
-      ws.username = user.username;
-      ws.role = user.role;
-      ws.isAlive = true;
+    }, 10000);
 
-      if (!clients.has(user.id)) {
-        clients.set(user.id, new Set());
-      }
-      clients.get(user.id)!.add(ws);
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
 
-      // Check if user allows showing online status
-      const showOnline = db.prepare("SELECT value FROM user_settings WHERE user_id = ? AND key = 'show_online'").get(user.id) as any;
-      if (!showOnline || showOnline.value !== 'off') {
-        broadcastToAll({ type: 'user_online', userId: user.id, username: user.username });
-      }
+        if (!ws.userId) {
+          if (msg.type === 'auth' && msg.token) {
+            try {
+              const decoded = jwt.verify(msg.token, config.jwtSecret) as any;
+              const db = getDb();
+              const user = db.prepare('SELECT id, username, role, is_active FROM users WHERE id = ?').get(decoded.id) as any;
+              if (!user || !user.is_active) {
+                ws.close(4001, 'User not found or inactive');
+                clearTimeout(authTimeout);
+                return;
+              }
+              ws.userId = user.id;
+              ws.username = user.username;
+              ws.role = user.role;
+              clearTimeout(authTimeout);
 
-      ws.on('pong', () => { ws.isAlive = true; });
+              if (!clients.has(user.id)) {
+                clients.set(user.id, new Set());
+              }
+              clients.get(user.id)!.add(ws);
 
-      ws.on('message', (data) => {
-        try {
-          const msg = JSON.parse(data.toString());
-          handleMessage(ws, msg);
-        } catch {}
-      });
+              const showOnline = db.prepare("SELECT value FROM user_settings WHERE user_id = ? AND key = 'show_online'").get(user.id) as any;
+              if (!showOnline || showOnline.value !== 'off') {
+                broadcastToAll({ type: 'user_online', userId: user.id, username: user.username });
+              }
 
-      ws.on('close', () => {
-        const userClients = clients.get(ws.userId!);
-        if (userClients) {
-          userClients.delete(ws);
-          if (userClients.size === 0) {
-            clients.delete(ws.userId!);
-            // Check privacy setting before broadcasting offline
-            const showOnline = db.prepare("SELECT value FROM user_settings WHERE user_id = ? AND key = 'show_online'").get(ws.userId!) as any;
-            if (!showOnline || showOnline.value !== 'off') {
-              broadcastToAll({ type: 'user_offline', userId: ws.userId, username: ws.username });
+              ws.send(JSON.stringify({ type: 'auth_ok', userId: user.id }));
+            } catch {
+              ws.close(4001, 'Invalid token');
             }
+          } else {
+            ws.close(4003, 'Expected auth message');
+          }
+          return;
+        }
+
+        handleMessage(ws, msg);
+      } catch {}
+    });
+
+    ws.on('pong', () => { ws.isAlive = true; });
+
+    ws.on('close', () => {
+      clearTimeout(authTimeout);
+      if (!ws.userId) return;
+      const userClients = clients.get(ws.userId);
+      if (userClients) {
+        userClients.delete(ws);
+        if (userClients.size === 0) {
+          clients.delete(ws.userId);
+          const db = getDb();
+          const showOnline = db.prepare("SELECT value FROM user_settings WHERE user_id = ? AND key = 'show_online'").get(ws.userId) as any;
+          if (!showOnline || showOnline.value !== 'off') {
+            broadcastToAll({ type: 'user_offline', userId: ws.userId, username: ws.username });
           }
         }
-      });
-    } catch {
-      ws.close(4001, 'Invalid token');
-    }
+      }
+    });
   });
 
   const interval = setInterval(() => {
@@ -181,18 +193,56 @@ function handleMessage(ws: AuthenticatedSocket, msg: any): void {
   }
 }
 
+function sendPushNotification(userId: string, payload: { title: string; body: string; tag?: string; icon?: string; url?: string }): void {
+  if (!config.vapidPublicKey || !config.vapidPrivateKey) return;
+
+  const db = getDb();
+  const subscriptions = db.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?').all(userId) as any[];
+
+  const webPush = require('web-push');
+  webPush.setVapidDetails(config.vapidEmail, config.vapidPublicKey, config.vapidPrivateKey);
+
+  for (const sub of subscriptions) {
+    try {
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.p256dh, auth: sub.auth },
+      };
+
+      webPush.sendNotification(pushSubscription, JSON.stringify(payload)).catch((err: any) => {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);
+        }
+      });
+    } catch {}
+  }
+}
+
 function broadcastToChat(chatId: string, message: any, excludeUserId?: string): void {
   const db = getDb();
   const members = db.prepare('SELECT user_id FROM chat_members WHERE chat_id = ? AND is_active = 1').all(chatId) as any[];
+
+  const chat = db.prepare('SELECT title, type FROM chats WHERE id = ?').get(chatId) as any;
+  const chatTitle = chat?.title || chatId;
+
   for (const member of members) {
     if (excludeUserId && member.user_id === excludeUserId) continue;
     const sockets = clients.get(member.user_id);
-    if (sockets) {
+
+    if (sockets && sockets.size > 0) {
       for (const socket of sockets) {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify(message));
         }
       }
+    } else {
+      sendPushNotification(member.user_id, {
+        title: chatTitle,
+        body: message.message?.text || message.type === 'new_message' ? (message.message?.text || 'Новое сообщение') : 'Новое событие',
+        tag: `chat-${chatId}`,
+        icon: '/icon-192.png',
+        url: '/',
+      });
     }
   }
 }

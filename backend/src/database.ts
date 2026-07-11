@@ -167,18 +167,55 @@ export function initializeDatabase(): void {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS rooms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      created_by TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS invite_links (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      created_by TEXT NOT NULL,
+      max_uses INTEGER,
+      uses INTEGER DEFAULT 0,
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
     CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON messages(chat_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_auto_delete ON messages(auto_delete_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_deleted_at ON messages(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_scheduled_at ON messages(scheduled_at);
     CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_chat_members_chat_id ON chat_members(chat_id);
     CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON tokens(user_id);
     CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by);
     CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);
     CREATE INDEX IF NOT EXISTS idx_polls_message_id ON polls(message_id);
     CREATE INDEX IF NOT EXISTS idx_poll_votes_poll_id ON poll_votes(poll_id);
+    CREATE INDEX IF NOT EXISTS idx_poll_votes_user_id ON poll_votes(user_id);
+    CREATE INDEX IF NOT EXISTS idx_read_receipts_user_id ON read_receipts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_read_receipts_message_id ON read_receipts(message_id);
+    CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
   `);
 
   // Migrations
@@ -194,6 +231,7 @@ export function initializeDatabase(): void {
   addColumn('chats', 'description', 'TEXT');
   addColumn('chats', 'pinned_message_id', 'TEXT');
   addColumn('chats', 'slow_mode_seconds', 'INTEGER DEFAULT 0');
+  addColumn('chats', 'avatar_url', 'TEXT');
   addColumn('chat_members', 'is_pinned', 'INTEGER DEFAULT 0');
   addColumn('messages', 'scheduled_at', 'TEXT');
   addColumn('users', 'password_hash', 'TEXT');

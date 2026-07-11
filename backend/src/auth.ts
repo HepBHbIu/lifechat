@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from './config';
 import { getDb } from './database';
+import { isTokenBlacklisted } from './routes/auth';
 
 export interface AuthUser {
   id: string;
@@ -25,6 +26,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   const token = authHeader.split(' ')[1];
+  if (isTokenBlacklisted(token)) {
+    res.status(401).json({ error: 'Token revoked' });
+    return;
+  }
+
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as AuthUser;
     const db = getDb();

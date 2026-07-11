@@ -14,7 +14,9 @@ const MSG_SELECT = `
      FROM reactions r LEFT JOIN users ru ON r.user_id = ru.id WHERE r.message_id = m.id) as reactions_json,
     (SELECT json_object('id', rm.id, 'text', rm.text, 'sender_name', rmu.username, 'type', rm.type)
      FROM messages rm LEFT JOIN users rmu ON rm.sender_id = rmu.id WHERE rm.id = m.reply_to_id) as reply_to_json,
-    (SELECT json_object('username', fmu.username) FROM users fmu WHERE fmu.id = m.forwarded_from_id) as forwarded_from_json
+    (SELECT json_object('username', fmu.username) FROM users fmu WHERE fmu.id = m.forwarded_from_id) as forwarded_from_json,
+    (SELECT COUNT(DISTINCT rr.user_id) FROM read_receipts rr WHERE rr.message_id = m.id AND rr.user_id != m.sender_id) as read_by_count,
+    (SELECT rr.read_at FROM read_receipts rr WHERE rr.message_id = m.id AND rr.user_id != m.sender_id ORDER BY rr.read_at DESC LIMIT 1) as last_read_at
 `;
 
 function parseMsgReactions(msg: any) {
@@ -25,18 +27,21 @@ function parseMsgReactions(msg: any) {
   delete msg.reply_to_json;
   try { msg.forwarded_from = JSON.parse(msg.forwarded_from_json || 'null'); } catch { msg.forwarded_from = null; }
   delete msg.forwarded_from_json;
+  msg.is_read = (msg.read_by_count || 0) > 0;
+  delete msg.read_by_count;
+  delete msg.last_read_at;
   return msg;
 }
 
 // GET messages
 router.get('/:chatId/messages', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { before, limit = '50' } = req.query;
   const db = getDb();
 
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member of this chat' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник этого чата' }); return; }
 
   let query = `${MSG_SELECT} FROM messages m LEFT JOIN users u ON m.sender_id = u.id LEFT JOIN files f ON m.file_id = f.id WHERE m.chat_id = ? AND m.deleted_at IS NULL`;
   const params: any[] = [chatId];
@@ -50,30 +55,78 @@ router.get('/:chatId/messages', (req: Request, res: Response) => {
 
 // Search messages
 router.get('/:chatId/search', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { q } = req.query;
-  if (!q || typeof q !== 'string') { res.status(400).json({ error: 'Query required' }); return; }
+  if (!q || typeof q !== 'string') { res.status(400).json({ error: 'Введите запрос' }); return; }
   const db = getDb();
 
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
 
   const messages = db.prepare(`${MSG_SELECT} FROM messages m LEFT JOIN users u ON m.sender_id = u.id LEFT JOIN files f ON m.file_id = f.id WHERE m.chat_id = ? AND m.deleted_at IS NULL AND m.text LIKE ? ORDER BY m.created_at DESC LIMIT 50`)
     .all(chatId, `%${q}%`).map(parseMsgReactions);
   res.json(messages);
 });
 
+// POST mark messages as read
+router.post('/:chatId/read', (req: Request, res: Response) => {
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
+  const { chatId } = req.params;
+  const db = getDb();
+
+  const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
+
+  const lastMsg = db.prepare('SELECT id FROM messages WHERE chat_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1').get(chatId) as any;
+  if (lastMsg) {
+    db.prepare(`INSERT OR REPLACE INTO read_receipts (id, message_id, user_id, read_at) VALUES (?, ?, ?, datetime('now'))`).run(
+      uuidv4(), lastMsg.id, req.user.id
+    );
+  }
+
+  res.json({ ok: true });
+});
+
+// GET global search
+router.get('/global/search', (req: Request, res: Response) => {
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
+  const { q, limit = '30' } = req.query;
+  if (!q || typeof q !== 'string') { res.status(400).json({ error: 'Введите запрос' }); return; }
+  const db = getDb();
+
+  const messages = db.prepare(`
+    SELECT m.*, u.username as sender_name, c.title as chat_title, c.type as chat_type,
+      (SELECT json_group_array(json_object('emoji', r.emoji, 'user_id', r.user_id, 'username', ru.username))
+       FROM reactions r LEFT JOIN users ru ON r.user_id = ru.id WHERE r.message_id = m.id) as reactions_json
+    FROM messages m
+    LEFT JOIN users u ON m.sender_id = u.id
+    INNER JOIN chat_members cm ON m.chat_id = cm.chat_id AND cm.user_id = ?
+    LEFT JOIN chats c ON m.chat_id = c.id
+    WHERE m.deleted_at IS NULL AND m.text LIKE ?
+    ORDER BY m.created_at DESC
+    LIMIT ?
+  `).all(req.user.id, `%${q}%`, parseInt(limit as string, 10));
+
+  const result = messages.map((msg: any) => {
+    try { msg.reactions = JSON.parse(msg.reactions_json || '[]').filter((r: any) => r.emoji); } catch { msg.reactions = []; }
+    delete msg.reactions_json;
+    return msg;
+  });
+
+  res.json(result);
+});
+
 // POST text message
 router.post('/:chatId/messages', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { text, reply_to_id, is_spoiler, auto_delete_seconds } = req.body;
-  if (!text || !text.trim()) { res.status(400).json({ error: 'Text is required' }); return; }
+  if (!text || !text.trim()) { res.status(400).json({ error: 'Введите текст' }); return; }
 
   const db = getDb();
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
 
   // Slow mode check
   const chat = db.prepare('SELECT slow_mode_seconds FROM chats WHERE id = ?').get(chatId) as any;
@@ -102,7 +155,7 @@ router.post('/:chatId/messages', (req: Request, res: Response) => {
 
 // POST file message
 router.post('/:chatId/messages/file', upload.single('file'), (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   if (!req.file) { res.status(400).json({ error: 'No file uploaded' }); return; }
 
   const { chatId } = req.params;
@@ -110,7 +163,7 @@ router.post('/:chatId/messages/file', upload.single('file'), (req: Request, res:
   const db = getDb();
 
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
 
   const fileId = uuidv4();
   db.prepare('INSERT INTO files (id, original_name, stored_name, path, mime_type, size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
@@ -120,6 +173,7 @@ router.post('/:chatId/messages/file', upload.single('file'), (req: Request, res:
   let msgType = 'file';
   if (req.file.mimetype.startsWith('image/')) msgType = 'image';
   else if (req.file.mimetype.startsWith('audio/')) msgType = 'audio';
+  else if (req.file.mimetype.startsWith('video/')) msgType = 'video_note';
 
   const id = uuidv4();
   db.prepare('INSERT INTO messages (id, chat_id, sender_id, type, text, file_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, chatId, req.user.id, msgType, text || null, fileId);
@@ -131,15 +185,15 @@ router.post('/:chatId/messages/file', upload.single('file'), (req: Request, res:
 
 // PATCH edit message
 router.patch('/:messageId', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { messageId } = req.params;
   const { text } = req.body;
   if (!text || !text.trim()) { res.status(400).json({ error: 'Text required' }); return; }
 
   const db = getDb();
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId) as any;
-  if (!msg) { res.status(404).json({ error: 'Not found' }); return; }
-  if (msg.sender_id !== req.user.id) { res.status(403).json({ error: 'Cannot edit' }); return; }
+  if (!msg) { res.status(404).json({ error: 'Не найдено' }); return; }
+  if (msg.sender_id !== req.user.id) { res.status(403).json({ error: 'Нельзя редактировать чужое' }); return; }
 
   db.prepare(`UPDATE messages SET text = ?, edited_at = datetime('now') WHERE id = ?`).run(text.trim(), messageId);
   const message = parseMsgReactions(db.prepare(`${MSG_SELECT} FROM messages m LEFT JOIN users u ON m.sender_id = u.id LEFT JOIN files f ON m.file_id = f.id WHERE m.id = ?`).get(messageId));
@@ -148,14 +202,14 @@ router.patch('/:messageId', (req: Request, res: Response) => {
 
 // POST forward message
 router.post('/:messageId/forward', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { messageId } = req.params;
   const { to_chat_id } = req.body;
   if (!to_chat_id) { res.status(400).json({ error: 'to_chat_id required' }); return; }
 
   const db = getDb();
   const original = db.prepare('SELECT * FROM messages WHERE id = ? AND deleted_at IS NULL').get(messageId) as any;
-  if (!original) { res.status(404).json({ error: 'Not found' }); return; }
+  if (!original) { res.status(404).json({ error: 'Не найдено' }); return; }
 
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(to_chat_id, req.user.id);
   if (!isMember) { res.status(403).json({ error: 'Not a member of target chat' }); return; }
@@ -172,13 +226,13 @@ router.post('/:messageId/forward', (req: Request, res: Response) => {
 
 // POST toggle reaction
 router.post('/:messageId/reactions', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { messageId } = req.params;
   const { emoji } = req.body;
   if (!emoji) { res.status(400).json({ error: 'emoji required' }); return; }
 
   const db = getDb();
-  const existing = db.prepare('SELECT id FROM reactions WHERE message_id = ? AND user_id = ?').get(messageId, req.user.id) as any;
+  const existing = db.prepare('SELECT id, emoji FROM reactions WHERE message_id = ? AND user_id = ?').get(messageId, req.user.id) as any;
 
   if (existing && existing.emoji === emoji) {
     db.prepare('DELETE FROM reactions WHERE id = ?').run(existing.id);
@@ -194,11 +248,11 @@ router.post('/:messageId/reactions', (req: Request, res: Response) => {
 
 // DELETE message
 router.delete('/:messageId', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { messageId } = req.params;
   const db = getDb();
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId) as any;
-  if (!msg) { res.status(404).json({ error: 'Not found' }); return; }
+  if (!msg) { res.status(404).json({ error: 'Не найдено' }); return; }
   if (msg.sender_id !== req.user.id && req.user.role !== 'admin') {
     res.status(403).json({ error: 'Cannot delete' }); return;
   }

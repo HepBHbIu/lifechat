@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { api } from '../api/client';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const ACCENT_COLORS = [
   { name: 'Красный', value: '#e94560', gradient: 'linear-gradient(135deg, #e94560, #ff6b81)' },
@@ -10,16 +11,23 @@ const ACCENT_COLORS = [
   { name: 'Оранжевый', value: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
   { name: 'Розовый', value: '#ec4899', gradient: 'linear-gradient(135deg, #ec4899, #f472b6)' },
   { name: 'Бирюзовый', value: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
+  { name: 'Индиго', value: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #818cf8)' },
+  { name: 'Лайм', value: '#84cc16', gradient: 'linear-gradient(135deg, #84cc16, #a3e635)' },
+  { name: 'Коралл', value: '#f87171', gradient: 'linear-gradient(135deg, #f87171, #fca5a5)' },
   { name: 'Серый', value: '#6b7280', gradient: 'linear-gradient(135deg, #6b7280, #9ca3af)' },
+  { name: 'Белый', value: '#e5e7eb', gradient: 'linear-gradient(135deg, #e5e7eb, #f3f4f6)' },
 ];
 
 const BG_COLORS = [
-  { name: 'Космос', value: '#08080f', secondary: '#0c0c16' },
-  { name: 'Тёмный', value: '#0f0f1a', secondary: '#141425' },
-  { name: 'Синий', value: '#0a1628', secondary: '#0f1f35' },
-  { name: 'Зелёный', value: '#0a1a15', secondary: '#0f251c' },
-  { name: 'Фиолетовый', value: '#120a20', secondary: '#1a1030' },
+  { name: 'Космос', value: '#050508', secondary: '#0a0a10' },
+  { name: 'Тёмный', value: '#08080f', secondary: '#0c0c16' },
+  { name: 'Индиго', value: '#0a0a1a', secondary: '#0e0e20' },
+  { name: 'Синий', value: '#060d1a', secondary: '#0a1428' },
+  { name: 'Зелёный', value: '#050d0a', secondary: '#0a1610' },
+  { name: 'Фиолетовый', value: '#0d0818', secondary: '#140f25' },
   { name: 'Светлый', value: '#f0f2f5', secondary: '#ffffff' },
+  { name: 'Сепия', value: '#0d0a06', secondary: '#14100a' },
+  { name: 'Ледяной', value: '#060d14', secondary: '#0a141e' },
 ];
 
 interface Props {
@@ -33,6 +41,7 @@ export default function ProfilePanel({ user, token, onClose }: Props) {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   const [activeSection, setActiveSection] = useState<'profile' | 'theme' | 'notifications' | 'privacy'>('profile');
+  const { supported, subscribed, subscribe, unsubscribe } = usePushNotifications(token);
 
   useEffect(() => {
     api.getUserSettings().then((data: any) => {
@@ -162,17 +171,19 @@ export default function ProfilePanel({ user, token, onClose }: Props) {
             </div>
 
             <h3 className="font-semibold text-sm mt-4">Размер текста</h3>
-            <div className="flex gap-2">
-              {[{ s: '13px', l: 'Мал.' }, { s: '15px', l: 'Средний' }, { s: '17px', l: 'Большой' }].map(({ s, l }) => (
-                <button key={s} onClick={() => saveSetting('font_size', s)}
-                  className={`flex-1 py-2 rounded-xl text-xs transition-all`}
-                  style={{
-                    background: settings.font_size === s ? 'var(--accent)' : 'rgba(255,255,255,0.04)',
-                    color: settings.font_size === s ? 'white' : 'var(--text-secondary)',
-                    border: settings.font_size === s ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                    fontSize: s,
-                  }}>{l}</button>
-              ))}
+            <div className="space-y-2">
+              <input type="range" min="12" max="20" step="2"
+                value={parseInt(settings.font_size || '15')}
+                onChange={(e) => { const v = e.target.value + 'px'; saveSetting('font_size', v); document.documentElement.style.setProperty('--msg-font-size', v); }}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{ background: 'linear-gradient(90deg, var(--accent) 0%, var(--accent) ' + ((parseInt(settings.font_size || '15') - 12) / 8 * 100) + '%, rgba(255,255,255,0.1) ' + ((parseInt(settings.font_size || '15') - 12) / 8 * 100) + '%)' }} />
+              <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                <span>12</span>
+                <span>14</span>
+                <span style={{ color: 'var(--accent)' }}>16</span>
+                <span>18</span>
+                <span>20</span>
+              </div>
             </div>
           </div>
         )}
@@ -185,7 +196,16 @@ export default function ProfilePanel({ user, token, onClose }: Props) {
             <Toggle label="Звук получения" value={settings.sound_receive !== 'off'} onChange={v => saveSetting('sound_receive', v ? 'on' : 'off')} />
             <Toggle label="Звук реакции" value={settings.sound_reaction !== 'off'} onChange={v => saveSetting('sound_reaction', v ? 'on' : 'off')} />
             <Toggle label="Звук набора" value={settings.sound_typing !== 'off'} onChange={v => saveSetting('sound_typing', v ? 'on' : 'off')} />
-            <Toggle label="Push-уведомления" value={settings.push_notify !== 'off'} onChange={v => saveSetting('push_notify', v ? 'on' : 'off')} />
+            {supported && (
+              <Toggle
+                label="Push-уведомления"
+                value={subscribed}
+                onChange={async (v) => {
+                  if (v) await subscribe();
+                  else await unsubscribe();
+                }}
+              />
+            )}
             <Toggle label="Показывать текст" value={settings.notify_preview !== 'off'} onChange={v => saveSetting('notify_preview', v ? 'on' : 'off')} />
           </div>
         )}

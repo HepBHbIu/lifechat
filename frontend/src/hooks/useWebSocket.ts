@@ -19,13 +19,18 @@ export function useWebSocket(token: string | null) {
     const connect = () => {
       if (cancelled) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'auth', token }));
         setConnected(true);
         reconnectAttempts.current = 0;
+        while (pendingRef.current.length > 0) {
+          const msg = pendingRef.current.shift();
+          ws.send(JSON.stringify(msg));
+        }
       };
 
       ws.onclose = () => {
@@ -66,11 +71,15 @@ export function useWebSocket(token: string | null) {
     };
   }, [token]);
 
+  const pendingRef = useRef<any[]>([]);
+
   const send = useCallback((msg: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
       return true;
     }
+    // Queue for offline
+    pendingRef.current.push(msg);
     return false;
   }, []);
 

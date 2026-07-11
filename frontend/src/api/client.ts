@@ -25,11 +25,26 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
 }
 
 export const api = {
+  request,
   loginWithPassword: (username: string, password: string) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   register: (username: string, password: string, inviteCode: string) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, invite_code: inviteCode }) }),
   refreshToken: () => request('/auth/refresh', { method: 'POST' }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
+
+  uploadAvatar: async (file: File): Promise<{ avatar_url: string }> => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/users/avatar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    return res.json();
+  },
+  deleteAvatar: () => request('/users/avatar', { method: 'DELETE' }),
 
   // Demo
   demoLogin: () => request('/demo/demo', { method: 'POST' }),
@@ -44,6 +59,7 @@ export const api = {
     return request(`/messages/${chatId}/messages${params}`);
   },
   searchMessages: (chatId: string, q: string) => request(`/messages/${chatId}/search?q=${encodeURIComponent(q)}`),
+  markAsRead: (chatId: string) => request(`/messages/${chatId}/read`, { method: 'POST' }),
   sendMessage: (chatId: string, text: string, replyToId?: string) => request(`/messages/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ text, reply_to_id: replyToId }) }),
   editMessage: (messageId: string, text: string) => request(`/messages/${messageId}`, { method: 'PATCH', body: JSON.stringify({ text }) }),
   forwardMessage: (messageId: string, toChatId: string) => request(`/messages/${messageId}/forward`, { method: 'POST', body: JSON.stringify({ to_chat_id: toChatId }) }),
@@ -68,6 +84,21 @@ export const api = {
   },
 
   getFileInfo: (fileId: string) => request(`/files/${fileId}/info`),
+
+  getFileUrl: (fileId: string): string => {
+    const token = getToken();
+    return `/api/files/${fileId}?token=${token}`;
+  },
+
+  getLinkPreview: (url: string) => request('/linkpreview/preview', { method: 'POST', body: JSON.stringify({ url }) }),
+
+  // Rooms
+  getRoomToken: (roomName: string) => request('/rooms/token', { method: 'POST', body: JSON.stringify({ roomName }) }),
+  getRooms: () => request('/rooms/list'),
+  leaveRoom: (roomName: string) => request('/rooms/leave', { method: 'POST', body: JSON.stringify({ roomName }) }),
+
+  // Global search
+  globalSearch: (q: string) => request(`/messages/global/search?q=${encodeURIComponent(q)}`),
 
   // Settings
   getServerSettings: () => request('/settings/server'),
