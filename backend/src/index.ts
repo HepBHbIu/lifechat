@@ -82,7 +82,6 @@ app.use('/api/retention', retentionRoutes);
 
 // Periodic cleanup
 setInterval(cleanupAutoDeleteMessages, 30000);
-setInterval(cleanupPendingUsers, 60000);
 setInterval(sendScheduledMessages, 30000);
 setInterval(runCleanup, 3600000); // Run retention cleanup every hour
 
