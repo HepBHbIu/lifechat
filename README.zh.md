@@ -1,5 +1,11 @@
 # EchoChat
 
+<p align="center">
+  <a href="README.md">English</a> •
+  <a href="README.ru.md">Русский</a> •
+  <a href="README.zh.md">中文</a>
+</p>
+
 去中心化、联邦式、端到端加密聊天系统。
 
 ## 概述

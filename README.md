@@ -1,5 +1,11 @@
 # EchoChat
 
+<p align="center">
+  <a href="README.md">English</a> •
+  <a href="README.ru.md">Русский</a> •
+  <a href="README.zh.md">中文</a>
+</p>
+
 A decentralized, federated, end-to-end encrypted chat system.
 
 ## Overview
