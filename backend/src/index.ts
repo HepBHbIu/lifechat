@@ -24,6 +24,7 @@ import e2eeRoutes from './routes/e2ee';
 import inviteRoutes from './routes/invite';
 import registryRoutes from './routes/registry';
 import retentionRoutes from './routes/retention';
+import qrRoutes from './routes/qr';
 import { setupWebSocket } from './websocket';
 import { initFederation } from './federation';
 import { initE2EE } from './e2ee';
@@ -77,6 +78,7 @@ app.use('/api/e2ee', e2eeRoutes);
 app.use('/api/invite', inviteRoutes);
 app.use('/registry', registryRoutes);
 app.use('/api/retention', retentionRoutes);
+app.use('/api/qr', qrRoutes);
 
 // Periodic cleanup
 setInterval(cleanupAutoDeleteMessages, 30000);

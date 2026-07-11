@@ -19,10 +19,6 @@ export const config = {
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800', 10),
   dbPath: path.resolve('./database.db'),
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map(s => s.trim()),
-  demoEnabled: process.env.DEMO_ENABLED !== 'false',
-  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
-  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
-  vapidEmail: process.env.VAPID_EMAIL || 'mailto:admin@echocat.local',
   // Federation
   federationEnabled: process.env.FEDERATION_ENABLED !== 'false',
   federationDomain: process.env.FEDERATION_DOMAIN || 'localhost',

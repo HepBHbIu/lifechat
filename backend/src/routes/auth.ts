@@ -15,17 +15,9 @@ export function isTokenBlacklisted(token: string): boolean {
 }
 
 router.post('/register', (req: Request, res: Response) => {
-  const { username, password, invite_code } = req.body;
+  const { username, password } = req.body;
   if (!username || !password) { res.status(400).json({ error: 'Введите логин и пароль' }); return; }
-  if (password.length < 8) { res.status(400).json({ error: 'Пароль минимум 8 символов' }); return; }
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-    res.status(400).json({ error: 'Пароль должен содержать заглавные, строчные буквы и цифры' }); return;
-  }
-  // Check invite code from DB or config
-  const db = getDb();
-  const dbInvite = db.prepare("SELECT value FROM settings WHERE key = 'invite_code'").get() as any;
-  const validCode = dbInvite ? dbInvite.value : config.inviteCode;
-  if (invite_code !== validCode) { res.status(403).json({ error: 'Неверный инвайт-код' }); return; }
+  if (password.length < 6) { res.status(400).json({ error: 'Пароль минимум 6 символов' }); return; }
 
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (existing) { res.status(409).json({ error: 'Логин уже занят' }); return; }

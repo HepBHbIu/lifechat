@@ -70,13 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }, []);
 
-  const loginWithDemo = useCallback(async () => {
-    const res = await api.demoLogin();
-    localStorage.setItem('chat_token', res.token);
-    setToken(res.token);
-    setUser(res.user);
-  }, []);
-
   const register = useCallback(async (username: string, password: string, inviteCode: string) => {
     const res = await api.register(username, password, inviteCode);
     localStorage.setItem('chat_token', res.token);
@@ -91,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loginWithPassword, register, loginWithDemo, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, loginWithPassword, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

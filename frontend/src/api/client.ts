@@ -32,23 +32,6 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
 
-  uploadAvatar: async (file: File): Promise<{ avatar_url: string }> => {
-    const formData = new FormData();
-    formData.append('avatar', file);
-    const token = getToken();
-    const res = await fetch(`${API_BASE}/users/avatar`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (!res.ok) throw new Error('Upload failed');
-    return res.json();
-  },
-  deleteAvatar: () => request('/users/avatar', { method: 'DELETE' }),
-
-  // Demo
-  demoLogin: () => request('/demo/demo', { method: 'POST' }),
-
   getUsers: () => request('/users'),
   getChats: () => request('/chats'),
   createPrivateChat: (userId: string) => request('/chats/private', { method: 'POST', body: JSON.stringify({ user_id: userId }) }),
