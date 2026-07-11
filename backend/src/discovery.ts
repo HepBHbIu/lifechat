@@ -3,9 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Hardcoded seed nodes (like Bitcoin's DNS seeds)
 const HARDCODED_SEEDS = [
-  'lifechat-seed1.com',
-  'lifechat-seed2.com',
-  'lifechat-seed3.com',
+  'echocat-seed1.com',
+  'echocat-seed2.com',
+  'echocat-seed3.com',
 ];
 
 // Default seed IPs (fallback if DNS fails)

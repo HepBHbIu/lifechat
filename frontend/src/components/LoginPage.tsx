@@ -60,7 +60,7 @@ export default function LoginPage() {
               <span className="text-3xl font-bold text-white relative z-10">L</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent"
-              style={{ backgroundImage: 'linear-gradient(135deg, #fff, #a0a0b0)' }}>LifeChat</h1>
+              style={{ backgroundImage: 'linear-gradient(135deg, #fff, #a0a0b0)' }}>EchoChat</h1>
             <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               {isRegister ? 'Создайте аккаунт' : 'Войдите в аккаунт'}
             </p>

@@ -51,7 +51,7 @@ router.get('/:code', (req: Request, res: Response) => {
   res.json({
     code: invite.code,
     server: {
-      name: identity?.name || 'LifeChat',
+      name: identity?.name || 'EchoChat',
       domain: identity?.domain || 'localhost',
     },
     expires_at: invite.expires_at,

@@ -22,11 +22,11 @@ export const config = {
   demoEnabled: process.env.DEMO_ENABLED !== 'false',
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
-  vapidEmail: process.env.VAPID_EMAIL || 'mailto:admin@lifechat.local',
+  vapidEmail: process.env.VAPID_EMAIL || 'mailto:admin@echocat.local',
   // Federation
   federationEnabled: process.env.FEDERATION_ENABLED !== 'false',
   federationDomain: process.env.FEDERATION_DOMAIN || 'localhost',
-  federationName: process.env.FEDERATION_NAME || 'LifeChat',
+  federationName: process.env.FEDERATION_NAME || 'EchoChat',
   seedPeers: (process.env.SEED_PEERS || '').split(',').filter(s => s.trim()),
 };
 

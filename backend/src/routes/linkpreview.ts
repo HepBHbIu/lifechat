@@ -12,7 +12,7 @@ async function fetchUrlPreview(url: string): Promise<{ title?: string; descripti
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LifeChat/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; EchoChat/1.0)',
       },
     });
     clearTimeout(timeout);

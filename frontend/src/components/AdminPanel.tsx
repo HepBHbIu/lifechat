@@ -14,8 +14,8 @@ export default function AdminPanel() {
 
   const [newUsername, setNewUsername] = useState('');
   const [newUserRole, setNewUserRole] = useState('user');
-  const [createdToken, setCreatedToken] = useState('');
-  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [createdPassword, setCreatedPassword] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [groupName, setGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -39,8 +39,8 @@ export default function AdminPanel() {
     if (!newUsername.trim()) return;
     try {
       const res = await api.adminCreateUser(newUsername.trim(), newUserRole);
-      setCreatedToken(res.token);
-      setShowTokenModal(true);
+      setCreatedPassword(res.password || 'Неизвестно');
+      setShowPasswordModal(true);
       setNewUsername('');
       loadUsers();
     } catch (err: any) { alert(err.message); }
@@ -58,8 +58,8 @@ export default function AdminPanel() {
   const handleCreateToken = async () => {
     try {
       const res = await api.adminCreateToken();
-      setCreatedToken(res.token);
-      setShowTokenModal(true);
+      setCreatedPassword(res.password || 'Неизвестно');
+      setShowPasswordModal(true);
       loadTokens();
     } catch (err: any) { alert(err.message); }
   };
@@ -361,7 +361,7 @@ export default function AdminPanel() {
         )}
       </div>
       {/* Token Modal */}
-      {showTokenModal && (
+      {showPasswordModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in-up">
           <div className="glass-strong rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -370,23 +370,22 @@ export default function AdminPanel() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-center mb-2">Токен создан</h3>
+            <h3 className="text-lg font-bold text-center mb-2">Пользователь создан</h3>
             <div className="p-3 rounded-xl mb-4 break-all" style={{ background: 'rgba(255,255,255,0.05)' }}>
-              <p className="text-[10px] text-[var(--text-secondary)] mb-1">Скопируйте токен:</p>
-              <p className="font-mono text-xs text-white select-all">{createdToken}</p>
+              <p className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>Пароль для входа:</p>
+              <p className="font-mono text-sm text-white select-all">{createdPassword}</p>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => { copyToken(createdToken); }}
+                onClick={() => { navigator.clipboard.writeText(createdPassword); }}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #e94560, #ff6b81)' }}
-              >
-                Копировать
+                style={{ background: 'linear-gradient(135deg, #e94560, #ff6b81)' }}>
+                Копировать пароль
               </button>
               <button
-                onClick={() => { setShowTokenModal(false); setCreatedToken(''); }}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:bg-white/5 transition-all"
-              >
+                onClick={() => { setShowPasswordModal(false); setCreatedPassword(''); }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.04)' }}>
                 Закрыть
               </button>
             </div>

@@ -20,7 +20,7 @@ router.post('/users', (req: Request, res: Response) => {
   if (!username) { res.status(400).json({ error: 'Username is required' }); return; }
   const db = getDb();
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-  if (existing) { res.status(409).json({ error: 'Username already exists' }); return; }
+  if (existing) { res.status(409).json({ error: 'Логин уже занят' }); return; }
   const id = uuidv4();
   const generatedPassword = password || crypto.randomBytes(4).toString('hex');
   const passwordHash = hashPassword(generatedPassword);
@@ -84,7 +84,7 @@ router.get('/chats', (_req: Request, res: Response) => {
 });
 
 router.post('/chats/group', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { title, member_ids } = req.body;
   if (!title) { res.status(400).json({ error: 'Title is required' }); return; }
   const db = getDb();
@@ -105,7 +105,7 @@ router.post('/chats/group', (req: Request, res: Response) => {
 
 // Create channel
 router.post('/chats/channel', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { title, description } = req.body;
   if (!title) { res.status(400).json({ error: 'Title required' }); return; }
   const db = getDb();

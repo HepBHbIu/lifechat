@@ -59,7 +59,6 @@ export default function ChatList({ chats, activeChat, onSelectChat, currentUser,
               className={`w-full flex items-center gap-3 px-4 py-3 transition-all text-left group/item ${activeChat?.id === chat.id ? '' : 'hover:bg-white/[0.02]'}`}
               style={{
                 background: activeChat?.id === chat.id ? 'rgba(233,69,96,0.06)' : 'transparent',
-                animationDelay: `${i * 30}ms`,
               }}>
               {/* Avatar */}
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover/item:scale-105"
@@ -101,8 +100,7 @@ export default function ChatList({ chats, activeChat, onSelectChat, currentUser,
       {/* Context menu */}
       {contextMenu && (
         <div className="fixed z-50 animate-fade-in-up" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          <div className="rounded-xl shadow-2xl py-1 min-w-[140px]"
-            style={{ background: 'rgba(12,12,22,0.98)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
+          <div className="rounded-xl py-1 min-w-[140px] glass-card">
             <button onClick={() => handlePin(contextMenu.chatId)}
               className="w-full px-4 py-2.5 text-left text-sm hover:bg-white/5 flex items-center gap-2 transition-colors">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/></svg>

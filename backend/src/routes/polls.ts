@@ -8,7 +8,7 @@ router.use(authMiddleware);
 
 // Create poll (as a message)
 router.post('/:chatId/polls', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { chatId } = req.params;
   const { question, choices, is_anonymous, allows_multiple } = req.body;
   if (!question || !choices || !Array.isArray(choices) || choices.length < 2) {
@@ -17,7 +17,7 @@ router.post('/:chatId/polls', (req: Request, res: Response) => {
 
   const db = getDb();
   const isMember = db.prepare('SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ? AND is_active = 1').get(chatId, req.user.id);
-  if (!isMember) { res.status(403).json({ error: 'Not a member' }); return; }
+  if (!isMember) { res.status(403).json({ error: 'Вы не участник' }); return; }
 
   const msgId = uuidv4();
   const pollId = uuidv4();
@@ -38,14 +38,14 @@ router.post('/:chatId/polls', (req: Request, res: Response) => {
 
 // Vote
 router.post('/:pollId/vote', (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const { pollId } = req.params;
   const { choice_id } = req.body;
-  if (!choice_id) { res.status(400).json({ error: 'choice_id required' }); return; }
+  if (!choice_id) { res.status(400).json({ error: 'Выберите вариант' }); return; }
 
   const db = getDb();
   const poll = db.prepare('SELECT * FROM polls WHERE id = ?').get(pollId) as any;
-  if (!poll) { res.status(404).json({ error: 'Poll not found' }); return; }
+  if (!poll) { res.status(404).json({ error: 'Опрос не найден' }); return; }
 
   if (!poll.allows_multiple) {
     db.prepare('DELETE FROM poll_votes WHERE poll_id = ? AND user_id = ?').run(pollId, req.user.id);

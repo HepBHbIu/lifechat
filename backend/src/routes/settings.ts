@@ -30,7 +30,7 @@ router.put('/server', authMiddleware, (req: Request, res: Response) => {
 
 // ===== User settings =====
 router.get('/me', authMiddleware, (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const db = getDb();
   const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.user.id) as any[];
   const settings: Record<string, string> = {};
@@ -41,7 +41,7 @@ router.get('/me', authMiddleware, (req: Request, res: Response) => {
 });
 
 router.put('/me', authMiddleware, (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const db = getDb();
   const { bio, avatar_url, username } = req.body;
 
@@ -71,28 +71,29 @@ router.put('/me', authMiddleware, (req: Request, res: Response) => {
 
 // ===== Chat settings =====
 router.get('/chat/:chatId', authMiddleware, (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const db = getDb();
   const chat = db.prepare('SELECT id, type, title, description, slow_mode_seconds, pinned_message_id, created_by FROM chats WHERE id = ?').get(req.params.chatId) as any;
-  if (!chat) { res.status(404).json({ error: 'Chat not found' }); return; }
+  if (!chat) { res.status(404).json({ error: 'Чат не найден' }); return; }
   res.json(chat);
 });
 
 router.put('/chat/:chatId', authMiddleware, (req: Request, res: Response) => {
-  if (!req.user) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  if (!req.user) { res.status(401).json({ error: 'Не авторизован' }); return; }
   const db = getDb();
   const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(req.params.chatId) as any;
-  if (!chat) { res.status(404).json({ error: 'Chat not found' }); return; }
+  if (!chat) { res.status(404).json({ error: 'Чат не найден' }); return; }
   if (chat.created_by !== req.user.id && req.user.role !== 'admin') {
-    res.status(403).json({ error: 'No access' }); return;
+    res.status(403).json({ error: 'Нет доступа' }); return;
   }
 
-  const { title, description, slow_mode_seconds } = req.body;
+  const { title, description, slow_mode_seconds, avatar_url } = req.body;
   const updates: string[] = [];
   const params: any[] = [];
   if (title !== undefined) { updates.push('title = ?'); params.push(title); }
   if (description !== undefined) { updates.push('description = ?'); params.push(description); }
   if (slow_mode_seconds !== undefined) { updates.push('slow_mode_seconds = ?'); params.push(slow_mode_seconds); }
+  if (avatar_url !== undefined) { updates.push('avatar_url = ?'); params.push(avatar_url); }
 
   if (updates.length > 0) {
     params.push(req.params.chatId);

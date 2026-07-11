@@ -7,7 +7,7 @@ export default function SpoilerText({ text }: { text: string }) {
   const parts = text.split(/(\|\|.*?\|\|)/g);
 
   return (
-    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+    <div style={{ fontSize: 'var(--msg-font-size)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
       {parts.map((part, i) => {
         if (part.startsWith('||') && part.endsWith('||')) {
           const spoilerText = part.slice(2, -2);

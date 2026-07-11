@@ -7,7 +7,6 @@ import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { initializeDatabase, getDb, cleanupAutoDeleteMessages } from './database';
-import { cleanupPendingUsers, isTelegramBotEnabled } from './telegram';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import adminRoutes from './routes/admin';
@@ -17,7 +16,6 @@ import filesRoutes from './routes/files';
 import pollsRoutes from './routes/polls';
 import settingsRoutes from './routes/settings';
 import demoRoutes from './routes/demo';
-import telegramRoutes from './routes/telegram';
 import gifRoutes from './routes/gif';
 import linkPreviewRoutes from './routes/linkpreview';
 import pushRoutes from './routes/push';
@@ -72,7 +70,6 @@ app.use('/api/files', filesRoutes);
 app.use('/api/polls', pollsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/demo', demoRoutes);
-app.use('/api/telegram', telegramRoutes);
 app.use('/api/gif', gifRoutes);
 app.use('/api/linkpreview', linkPreviewRoutes);
 app.use('/api/push', pushRoutes);
@@ -137,6 +134,6 @@ if (!adminExists) {
 setupWebSocket(server);
 
 server.listen(config.port, () => {
-  console.log(`LifeChat server running on http://localhost:${config.port}`);
+  console.log(`EchoChat server running on http://localhost:${config.port}`);
   console.log(`WebSocket: ws://localhost:${config.port}/ws`);
 });
