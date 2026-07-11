@@ -24,14 +24,14 @@ export interface RetentionConfig {
 }
 
 const DEFAULT_RETENTION: RetentionConfig = {
-  local_messages: -1,          // forever
-  local_files: 30,             // 30 days
-  federated_messages: 7,       // 7 days
-  federated_files: 3,          // 3 days
-  federation_peers: 30,        // 30 days
+  local_messages: 7,           // 7 days then delete
+  local_files: 7,              // 7 days then delete
+  federated_messages: 3,       // 3 days
+  federated_files: 1,          // 1 day
+  federation_peers: 30,        // 30 days inactive peers
   invite_links: 90,            // 90 days
-  read_receipts: 30,           // 30 days
-  user_keys: 365,              // 1 year
+  read_receipts: 7,            // 7 days
+  user_keys: 365,              // 1 year then delete account
   max_file_size: 50 * 1024 * 1024,  // 50MB
   max_storage_per_server: 5 * 1024 * 1024 * 1024,  // 5GB
 };
@@ -186,7 +186,11 @@ export function cleanupOldFederationData(): void {
     }
   }
 
-  // Cleanup old read receipts
+// Cleanup old read receipts
+export function cleanupOldReadReceipts(): void {
+  const db = getDb();
+  const now = new Date();
+
   if (retentionConfig.read_receipts > 0) {
     const cutoff = new Date(now.getTime() - retentionConfig.read_receipts * 86400000);
     const result = db.prepare(`
@@ -196,6 +200,41 @@ export function cleanupOldFederationData(): void {
     if (result.changes > 0) {
       console.log(`[Retention] Cleaned ${result.changes} old read receipts`);
     }
+  }
+}
+
+// Cleanup inactive user accounts (1 year)
+export function cleanupInactiveUsers(): void {
+  const db = getDb();
+  const now = new Date();
+
+  if (retentionConfig.user_keys > 0) {
+    const cutoff = new Date(now.getTime() - retentionConfig.user_keys * 86400000);
+
+    // Find users inactive for more than 1 year
+    const inactiveUsers = db.prepare(`
+      SELECT id FROM users
+      WHERE last_seen_at IS NOT NULL
+      AND last_seen_at < ?
+      AND role != 'admin'
+    `).all(cutoff.toISOString()) as any[];
+
+    for (const user of inactiveUsers) {
+      // Delete user data
+      db.prepare('DELETE FROM messages WHERE sender_id = ?').run(user.id);
+      db.prepare('DELETE FROM chat_members WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM user_keys WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM read_receipts WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    }
+
+    if (inactiveUsers.length > 0) {
+      console.log(`[Retention] Cleaned ${inactiveUsers.length} inactive user accounts`);
+    }
+  }
+}
   }
 }
 
@@ -242,5 +281,7 @@ export function runCleanup(): void {
   cleanupOldMessages();
   cleanupOldFiles();
   cleanupOldFederationData();
+  cleanupOldReadReceipts();
+  cleanupInactiveUsers();
   console.log('[Retention] Cleanup complete');
 }

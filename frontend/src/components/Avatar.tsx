@@ -7,12 +7,13 @@ interface AvatarProps {
 
 export default function Avatar({ url, username, size = 40, className = '' }: AvatarProps) {
   const initial = username ? username.charAt(0).toUpperCase() : '?';
+  const name = username || '?';
 
   if (url) {
     return (
       <img
         src={url}
-        alt={username}
+        alt={name}
         className={`rounded-lg object-cover ${className}`}
         style={{ width: size, height: size }}
         onError={(e) => {
@@ -30,11 +31,12 @@ export default function Avatar({ url, username, size = 40, className = '' }: Ava
         width: size,
         height: size,
         background: `linear-gradient(135deg, var(--accent), var(--accent-hover))`,
-        fontSize: size * 0.4,
+        fontSize: size * 0.35,
         display: url ? 'none' : 'flex',
+        letterSpacing: '-0.02em',
       }}
     >
-      {initial}
+      {size >= 32 ? (username?.slice(0, 2)?.toUpperCase() || '?') : initial}
     </div>
   );
 }
