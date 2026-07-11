@@ -185,6 +185,7 @@ export function cleanupOldFederationData(): void {
       console.log(`[Retention] Cleaned ${result.changes} old invite links`);
     }
   }
+}
 
 // Cleanup old read receipts
 export function cleanupOldReadReceipts(): void {
