@@ -203,7 +203,6 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON messages(chat_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_auto_delete ON messages(auto_delete_at);
     CREATE INDEX IF NOT EXISTS idx_messages_deleted_at ON messages(deleted_at);
-    CREATE INDEX IF NOT EXISTS idx_messages_scheduled_at ON messages(scheduled_at);
     CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_chat_members_chat_id ON chat_members(chat_id);
     CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
@@ -237,6 +236,9 @@ export function initializeDatabase(): void {
   addColumn('users', 'password_hash', 'TEXT');
   addColumn('users', 'bio', 'TEXT');
   addColumn('users', 'avatar_url', 'TEXT');
+
+  // Add index after column exists
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_scheduled_at ON messages(scheduled_at)`); } catch {}
 }
 
 // Auto-delete expired messages (call periodically)

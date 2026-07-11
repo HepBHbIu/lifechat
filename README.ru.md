@@ -13,38 +13,39 @@
 ## Быстрый старт
 
 ```bash
-# Клонируем
 git clone https://github.com/HepBHbIu/echocat.git
 cd echocat
-
-# Устанавливаем
 npm install
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
-
-# Настраиваем
+cd backend && npm install && cd ../frontend && npm install && cd ..
 cp backend/.env.example backend/.env
-# Редактируем backend/.env
-
-# Запускаем
 npm run dev
 ```
 
 ## Настройка федерации
 
 ```bash
-# Сервер A (твой)
+# Сервер A
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-a.com
-FEDERATION_NAME=EchoChat A
 SEED_PEERS=
 
-# Сервер B (друга)
+# Сервер B
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-b.com
-FEDERATION_NAME=EchoChat B
 SEED_PEERS=http://server-a.com:3001
 ```
+
+## Пожертвования
+
+Если EchoChat вам полезен, поддержите проект:
+
+**Bitcoin:** `1NxFhq7HoiQvBTRRusnsZfoCLpaFdDc3Mm`
+**Toncoin:** `UQDDiCjIbIJ7JdsiPpavuKdHAhNjHKJ-Hu9YA3ZIH-Rwg2DQ`
+**Ethereum:** `0x5e736750e1C809C027888E409Cb96c54e331538f`
+
+## Контакты
+
+**Telegram:** [@Figment_of_the_imagination](https://t.me/Figment_of_the_imagination)
 
 ## Технологии
 

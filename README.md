@@ -13,46 +13,47 @@ A decentralized, federated, end-to-end encrypted chat system.
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/HepBHbIu/echocat.git
 cd echocat
-
-# Install
 npm install
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
-
-# Configure
+cd backend && npm install && cd ../frontend && npm install && cd ..
 cp backend/.env.example backend/.env
-# Edit backend/.env with your settings
-
-# Run
 npm run dev
 ```
 
 ## Federation Setup
 
 ```bash
-# Server A (your server)
+# Server A
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-a.com
-FEDERATION_NAME=EchoChat A
 SEED_PEERS=
 
-# Server B (friend's server)
+# Server B
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-b.com
-FEDERATION_NAME=EchoChat B
 SEED_PEERS=http://server-a.com:3001
 ```
 
-## API Endpoints
+## API
 
 - `GET /federation/info` - Server info
 - `GET /federation/peers` - List peers
 - `POST /federation/register` - Register server
 - `GET /registry/servers` - Public server list
 - `POST /api/e2ee/keys/generate` - Generate encryption keys
+
+## Donation
+
+If you find EchoChat useful, consider supporting:
+
+**Bitcoin:** `1NxFhq7HoiQvBTRRusnsZfoCLpaFdDc3Mm`
+**Toncoin:** `UQDDiCjIbIJ7JdsiPpavuKdHAhNjHKJ-Hu9YA3ZIH-Rwg2DQ`
+**Ethereum:** `0x5e736750e1C809C027888E409Cb96c54e331538f`
+
+## Contact
+
+**Telegram:** [@Figment_of_the_imagination](https://t.me/Figment_of_the_imagination)
 
 ## Tech Stack
 

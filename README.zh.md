@@ -13,38 +13,39 @@
 ## 快速开始
 
 ```bash
-# 克隆
 git clone https://github.com/HepBHbIu/echocat.git
 cd echocat
-
-# 安装
 npm install
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
-
-# 配置
+cd backend && npm install && cd ../frontend && npm install && cd ..
 cp backend/.env.example backend/.env
-# 编辑 backend/.env
-
-# 运行
 npm run dev
 ```
 
 ## 联邦设置
 
 ```bash
-# 服务器A（你的服务器）
+# 服务器A
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-a.com
-FEDERATION_NAME=EchoChat A
 SEED_PEERS=
 
-# 服务器B（朋友的服务器）
+# 服务器B
 FEDERATION_ENABLED=true
 FEDERATION_DOMAIN=server-b.com
-FEDERATION_NAME=EchoChat B
 SEED_PEERS=http://server-a.com:3001
 ```
+
+## 捐赠
+
+如果您觉得EchoChat有用，请考虑支持：
+
+**比特币:** `1NxFhq7HoiQvBTRRusnsZfoCLpaFdDc3Mm`
+**Toncoin:** `UQDDiCjIbIJ7JdsiPpavuKdHAhNjHKJ-Hu9YA3ZIH-Rwg2DQ`
+**以太坊:** `0x5e736750e1C809C027888E409Cb96c54e331538f`
+
+## 联系方式
+
+**Telegram:** [@Figment_of_the_imagination](https://t.me/Figment_of_the_imagination)
 
 ## 技术栈
 
