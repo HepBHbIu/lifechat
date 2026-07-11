@@ -19,6 +19,7 @@ router.post('/register', (req: Request, res: Response) => {
   if (!username || !password) { res.status(400).json({ error: 'Введите логин и пароль' }); return; }
   if (password.length < 6) { res.status(400).json({ error: 'Пароль минимум 6 символов' }); return; }
 
+  const db = getDb();
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (existing) { res.status(409).json({ error: 'Логин уже занят' }); return; }
 
