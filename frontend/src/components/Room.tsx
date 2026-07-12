@@ -8,7 +8,6 @@ import {
   ConnectionStateToast,
   useLocalParticipant,
   useParticipants,
-  useTrack,
   ParticipantTile,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
