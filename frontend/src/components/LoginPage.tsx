@@ -4,21 +4,19 @@ import { useAuth } from '../contexts/AuthContext';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  const { loginWithPassword, register, loginWithDemo } = useAuth();
+  const { loginWithPassword, register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
-    if (isRegister && !inviteCode.trim()) { setError('Введите инвайт-код'); return; }
     setError('');
     setLoading(true);
     try {
       if (isRegister) {
-        await register(username.trim(), password, inviteCode.trim());
+        await register(username.trim(), password, '');
       } else {
         await loginWithPassword(username.trim(), password);
       }
@@ -27,12 +25,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemo = async () => {
-    setError('');
-    setLoading(true);
-    try { await loginWithDemo(); } catch (err: any) { setError(err.message || 'Ошибка'); } finally { setLoading(false); }
   };
 
   return (
@@ -74,11 +66,9 @@ export default function LoginPage() {
               className="w-full px-5 py-4 rounded-2xl text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 transition-all"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }} />
             {isRegister && (
-              <div className="animate-fade-in-up">
-                <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)} placeholder="Инвайт-код"
-                  className="w-full px-5 py-4 rounded-2xl text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }} />
-              </div>
+              <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+                Просто введите логин и пароль
+              </p>
             )}
             {error && (
               <div className="px-4 py-3 rounded-2xl text-sm animate-fade-in-up"
@@ -98,21 +88,10 @@ export default function LoginPage() {
             style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
             {isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
           </button>
-
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
-            <div className="relative flex justify-center"><span className="px-3 text-xs" style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.03)' }}>или</span></div>
-          </div>
-
-          <button onClick={handleDemo} disabled={loading}
-            className="w-full py-4 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, rgba(233,69,96,0.12), rgba(233,69,96,0.06))', border: '1px solid rgba(233,69,96,0.2)', color: '#ff6b81' }}>
-            {loading ? '...' : '🚀 Попробовать без регистрации'}
-          </button>
         </div>
 
         <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.15)' }}>
-          Демо-режим · Инвайт-код от администратора
+          Децентрализованный мессенджер
         </p>
       </div>
     </div>
